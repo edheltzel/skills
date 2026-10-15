@@ -25,7 +25,7 @@ answer is a blur. The profile has two:
   reactions, and rumors are no, even when they name a real product.
 
 Taste ("toy", "would I enjoy this", "is it good") is not a question on this pass. It can
-influence which five the digest keeps. It is never a reason to drop here.
+influence which ten the digest keeps. It is never a reason to drop here.
 
 **Keep numbers out of the questions.** Points, dates, and counts are code. The model is
 unreliable at arithmetic.

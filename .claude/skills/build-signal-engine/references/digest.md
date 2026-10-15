@@ -4,7 +4,7 @@
 
 One model call per run, over items the keep/drop pass kept and has not already put in a
 digest. Rank them before the call: keeps in the order X, then GitHub releases, then Hacker
-News, then RSS. Send at most a few times the digest cap (15 is enough). The model does not
+News, then RSS. Send at most a few times the digest cap (30 is enough). The model does not
 go looking for more.
 
 Start from `templates/digest_prompt.md`. Fill the focus, the cap, and the format from
@@ -17,11 +17,12 @@ Start from `templates/digest_prompt.md`. Fill the focus, the cap, and the format
   seen-item memory did not already collapse) into one entry, and writes one or two
   sentences.
 - **Every link stays.** The digest is a pointer.
-- The cap is the length cap in `PROFILE.md`. For this skill that cap is 5. Do not raise it.
-  If fewer than five items were kept, the digest is shorter. Never pad with drops or with
+- The cap is the length cap in `PROFILE.md`. For this skill that cap is 10. Do not raise it.
+  If fewer than ten items were kept, the digest is shorter. Never pad with drops or with
   items that have no decision.
 - Tell it to say plainly when an item is a rumor or a minor change, and never to call a
   release a launch unless the item says something launched.
+- Writing rule: plain words. No jargon, no acronyms, and no figures of speech.
 
 Invoke the model the way `references/safety.md` requires.
 
@@ -30,15 +31,20 @@ Invoke the model the way `references/safety.md` requires.
 ```markdown
 # <Date> - <one line on what mattered today>
 
-## <Group>
-- **<Item in plain words>** - one or two sentences on what changed and why it matters.
-  [source](url)
+## <Category>
+> **<Top item, plain words>** - one or two sentences on what changed and why it matters.
+> [source](url)
+
+- **<Next item, plain words>** - one or two sentences. [source](url)
 
 ## Also worth a look
-- one-liners with links, only if they fit under the cap of 5
+- one-liners with links, only if they fit under the cap of 10
 ```
 
-The cap counts items, not headings. "Also worth a look" is still inside the five.
+Group by category. The highlighted item at the top of each category is the
+highest-ranked keep in that category (earliest in the ranked list). The rest of the
+category follows as ordinary bullets. "Also worth a look" is one-liners and is still
+inside the ten. The cap counts items, not headings.
 
 ## Delivery
 

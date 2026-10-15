@@ -79,8 +79,8 @@ A failed model call is not a drop.
 ## The digest
 
 - Where I read it:
-- Length cap: 5
-- Format: grouped items, one or two sentences each, every link kept
+- Length cap: 10
+- Format: default layout. A date and one line on what mattered today. Items grouped by category. The top item is highlighted at the top of each category. "Also worth a look" is one-liners with links, inside the cap. Plain words: no jargon, no acronyms, no figures of speech. Every link kept.
 - Delivery file: `digests/YYYY-MM-DD.md`
 - Full run: daily, early morning, local time
 

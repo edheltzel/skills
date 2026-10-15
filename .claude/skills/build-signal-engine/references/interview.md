@@ -1,7 +1,7 @@
 # The profile interview
 
 The diet is fixed: one person, AI and dev news, X then GitHub releases then Hacker News
-then RSS, seen-item memory, code filters, a cheap-model keep/drop pass, a five-item daily
+then RSS, seen-item memory, code filters, a cheap-model keep/drop pass, a ten-item daily
 digest. The interview fills in what only this person knows. It does not reopen the diet.
 
 **Ask about things that already happened. Never ask them to design the filter.** They do
@@ -92,7 +92,7 @@ setting as already filled, and ask what to change:
 | Seen-item memory | on |
 | Keep/drop model | the cheapest model they can call that returns structured JSON reliably |
 | Digest model | one call per run |
-| Digest | 5 items, every link kept |
+| Digest | 10 items, default layout, every link kept |
 | Delivery | `digests/YYYY-MM-DD.md`, then their destination from question 5 |
 | Schedule | daily, early morning, local time |
 | Stack | Python, unless the repo already has a language; SQLite, gitignored |
@@ -119,7 +119,7 @@ Stage 1.
 
 **Narrow, do not widen, when:**
 
-- They ask for everything in tech. The digest is AI/dev, five items. Ask once what they
+- They ask for everything in tech. The digest is AI/dev, ten items. Ask once what they
   would do differently if they knew on the day, and write that line into the profile.
 - They name Reddit, YouTube, Discord, papers, a news search, or a second person. Those are
   outside this skill. Say so.

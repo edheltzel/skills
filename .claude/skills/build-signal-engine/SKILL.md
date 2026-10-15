@@ -1,6 +1,6 @@
 ---
 name: build-signal-engine
-description: Build one person's personal AI and dev news digest (a signal engine with a fixed diet) - X first, then GitHub releases, Hacker News, and RSS, with seen-item memory, code filters, a cheap-model keep/drop pass, and a 5-item daily digest. Interviews only for their accounts, repos, feeds, and keep/drop examples, then builds it into their repo one stage at a time on real data. Use when the user wants a personal AI news digest, a daily dev briefing, an information diet, to keep up with AI without doomscrolling, or something that reads X, GitHub, HN, and RSS and says what matters.
+description: Build one person's personal AI and dev news digest (a signal engine with a fixed diet) - X first, then GitHub releases, Hacker News, and RSS, with seen-item memory, code filters, a cheap-model keep/drop pass, and a 10-item daily digest. Interviews only for their accounts, repos, feeds, and keep/drop examples, then builds it into their repo one stage at a time on real data. Use when the user wants a personal AI news digest, a daily dev briefing, an information diet, to keep up with AI without doomscrolling, or something that reads X, GitHub, HN, and RSS and says what matters.
 argument-hint: "[optional: path/to/repo]"
 arguments: [repo]
 ---
@@ -14,7 +14,7 @@ arguments: [repo]
 
 Build one person's daily AI and dev news digest. Every morning it pulls X, then GitHub
 releases, Hacker News, and RSS; remembers what it has already seen; drops the rest with
-code filters and a cheap-model keep/drop pass; and writes one digest of at most five items.
+code filters and a cheap-model keep/drop pass; and writes one digest of at most ten items.
 
 **Keeping up is a filtering problem, not a reading problem.** The engine encodes this
 person's filter and runs it on those four sources.
@@ -47,7 +47,7 @@ X, then GitHub releases, Hacker News, RSS
     -> store (seen-item memory, stable ids)
     -> code filters
     -> cheap-model keep/drop
-    -> reading pass writes at most 5 items
+    -> reading pass writes at most 10 items
     -> digests/YYYY-MM-DD.md, once a day
 ```
 
@@ -89,7 +89,7 @@ stays out.
 | 2 | GitHub releases, Hacker News, RSS | each source's real count, and a re-run that adds ~0 |
 | 3 | Code filters | how many each filter dropped |
 | 4 | The cheap-model keep/drop pass | their own keep/drop examples scored, misses listed |
-| 5 | The digest | at most 5 items from today's real data |
+| 5 | The digest | at most 10 items from today's real data |
 | 6 | Delivery + daily schedule | one run by hand; the schedule exists only after they agree |
 
 **X first, end to end, before the other three.** A pipeline built source-wide but never run
@@ -125,7 +125,7 @@ Prove it on their examples before trusting it. Tune the words of the question fi
 ## Stages 5-6. Digest, delivery, schedule
 
 Read `references/digest.md`. The digest model reads only what keep/drop kept, writes at most
-five items in the format from `PROFILE.md`, and keeps every link. Start from
+ten items in the format from `PROFILE.md`, and keeps every link. Start from
 `templates/digest_prompt.md`.
 
 Deliver `digests/YYYY-MM-DD.md` first, then the destination they named. Ask before
@@ -169,7 +169,7 @@ it. Do not set it for them. Do not add a switch that turns model safety off.
 - `references/interview.md` - the short profile interview and the defaults to confirm
 - `references/sources.md` - X, GitHub releases, Hacker News, RSS, seen-item memory, code filters
 - `references/decisions.md` - the cheap-model keep/drop pass and how to prove it
-- `references/digest.md` - the 5-item digest, delivery, and the daily schedule
+- `references/digest.md` - the 10-item digest, delivery, and the daily schedule
 - `references/safety.md` - permission and safety checks, and `agent_args_override`
 - `templates/PROFILE.md` - the file the interview produces and every stage reads
 - `templates/item_schema.md` - the one item shape every source maps to

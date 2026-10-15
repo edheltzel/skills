@@ -9,21 +9,35 @@ You write a daily digest for one person. They keep up with <focus>, and they rea
 decide <what they do with an item>.
 
 Below are today's items that passed their filter, already ranked. Take at most <cap> of
-them. <cap> is 5 unless their profile says a smaller number.
+them. <cap> is 10 unless their profile says a smaller number.
 
 Rules:
 - At most <cap> items. If fewer arrived, write fewer. Never pad.
 - You may merge items that are the same story into one entry. Merged entries still count
   as one, and every link stays.
 - Do not add anything that is not in the list.
-- One or two plain sentences per entry: what changed, and why it matters to them.
+- One or two sentences per entry: what changed, and why it matters to them.
+- Plain words. No jargon, no acronyms, and no figures of speech.
 - Keep every link. Never invent a link or a detail that is not in the item.
 - Say plainly when something is a rumor, a minor update, or a deprecation.
 - A release is a launch only if the item says something launched.
 - No hype words, no exclamation marks.
 
 Format:
-<format from PROFILE.md>
+# <Date> - <one line on what mattered today>
+
+## <Category>
+> **<Top item, plain words>** - one or two sentences on what changed and why it matters.
+> [source](url)
+
+- **<Next item, plain words>** - one or two sentences. [source](url)
+
+## Also worth a look
+- one-liners with links
+
+Group by category. Highlight the top item at the top of each category (the blockquote).
+The rest of that category follows as bullets. "Also worth a look" is one-liners and counts
+toward the cap.
 
 Items:
 <items JSON>
