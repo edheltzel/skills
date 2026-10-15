@@ -1,6 +1,6 @@
 ---
 name: build-signal-engine
-description: Build a personal signal engine from scratch - a system that reads every source someone cares about each day (changelogs and release notes, communities, feeds, videos, papers), makes a quick decision on every item, lets an LLM read only what survives, and delivers one short digest. Interviews the user first to pin down what they need to keep up with, the sources where it actually shows up, and the one question that decides what is worth their time, then builds it one stage at a time into their own repo, proving each stage on real data. Agnostic about the coding agent, the decision model and where the data comes from. Use when the user wants to keep up with AI or their field without doomscrolling, build an AI news digest, a daily briefing, a content engine, a research or competitor monitor, a changelog watcher, or "something that reads everything and tells me what matters"; and when they mention signal vs noise, an information diet, or falling behind.
+description: Build one person's personal AI and dev news digest (a signal engine with a fixed diet) - X first, then GitHub releases, Hacker News, and RSS, with seen-item memory, code filters, a cheap-model keep/drop pass, and a 10-item daily digest. Interviews only for their accounts, repos, feeds, and keep/drop examples, then builds it into their repo one stage at a time on real data. Use when the user wants a personal AI news digest, a daily dev briefing, an information diet, to keep up with AI without doomscrolling, or something that reads X, GitHub, HN, and RSS and says what matters.
 argument-hint: "[optional: path/to/repo]"
 arguments: [repo]
 ---
@@ -10,23 +10,23 @@ arguments: [repo]
 **What the user typed:** $ARGUMENTS
 
 > If a path was given, it is the repo to build in; confirm it in one sentence. If not, ask
-> whether to start a new folder or use the current one. Then go straight to Round 1.
+> whether to start a new folder or use the current one. Then go straight to the profile.
 
-A signal engine reads everything so its owner doesn't have to. Every morning it pulls
-from the places things actually happen, decides on every single item, hands an LLM only
-the few worth reading, and delivers one digest.
+Build one person's daily AI and dev news digest. Every morning it pulls X, then GitHub
+releases, Hacker News, and RSS; remembers what it has already seen; drops the rest with
+code filters and a cheap-model keep/drop pass; and writes one digest of at most ten items.
 
-**Keeping up is a filtering problem, not a reading problem.** Reading more makes people
-feel more behind. The engine encodes the user's own filter and runs it on everything.
+**Keeping up is a filtering problem, not a reading problem.** The engine encodes this
+person's filter and runs it on those four sources.
 
-**Build it into the user's repo. Do not hand them a plan.** Every stage below ends with
-code committed and output from a real run they can look at.
+**Build it into their repo. Do not hand them a plan.** Every stage ends with code committed
+and output from a real run they can look at.
 
 ---
 
 ## Output discipline
 
-The interview and the build are long. What you say is not.
+The profile and the build are long. What you say is not.
 
 | Moment | Budget |
 |---|---|
@@ -43,18 +43,40 @@ skill works this way unless asked. The reasoning lives in `references/`, for you
 ## The shape
 
 ```
-sources -> store (dedupe, stable ids) -> code filters (dates, numbers) -> decide on every item
-        -> the LLM reads what survives -> digest -> delivered on a schedule
+X, then GitHub releases, Hacker News, RSS
+    -> store (seen-item memory, stable ids)
+    -> code filters
+    -> cheap-model keep/drop
+    -> reading pass writes at most 10 items
+    -> digests/YYYY-MM-DD.md, once a day
 ```
 
-Two splits carry the whole design. Say each once, early, in one sentence:
+Two splits carry the design. Say each once, early, in one sentence:
 
-- **Numbers in code, judgment in the decision pass, reading in the LLM.** Dates, upvotes,
-  view counts and "have I seen this" are code. "Is this new, is it for me" is a typed
-  decision. Summarising and connecting is the LLM. Mixing them up is the most common bug.
-- **The question is the policy.** What the engine keeps is decided by the words of one or
-  two questions written from the user's own examples. Changing the question changes the
-  engine. There is no model setting that fixes a vague question.
+- **Numbers in code, judgment in the keep/drop pass, reading in the digest model.** Dates,
+  points, drafts, prereleases, and "already seen" are code. "Is this new AI/dev news for
+  this person" is the cheap model. Summarising is the digest model. Mixing them up is the
+  most common bug.
+- **The question is the policy.** What the engine keeps is the words of the keep/drop
+  questions, written from this person's examples. Changing the question changes the engine.
+  There is no model setting that fixes a vague question.
+
+One person, one profile, one SQLite file. No second reader and no shared tenant.
+
+## What this skill does not build
+
+Leave these out. Do not add a source, a stage, or a model path for them.
+
+- Any source besides X, GitHub releases, Hacker News, and RSS.
+- Weekly roll-ups, content-idea sections, shadow-week programs, competitor monitors,
+  research watches, and multi-user digests.
+- A typed decision-model service, or a larger model on every item. Keep/drop is one cheap
+  model. The digest is one call per run.
+- Permission-skip or safety-skip flags on any model or agent call. See Safety.
+
+When the user asks for one of those, say this skill is the personal AI/dev digest and stop
+widening it. A source whose terms forbid automated access, and that has no official API,
+stays out.
 
 ---
 
@@ -62,134 +84,65 @@ Two splits carry the whole design. Say each once, early, in one sentence:
 
 | Stage | What exists at the end | Proof before moving on |
 |---|---|---|
-| 0 | The interview, written down | `PROFILE.md` the user agreed to |
-| 1 | One source, end to end into the store | a real run: N items, all with stable ids |
-| 2 | Every source | each source's real count, and a re-run that adds ~0 |
+| 0 | The profile, written down | `PROFILE.md` the user agreed to |
+| 1 | X, end to end, with seen-item memory | a real run: N items, all with stable ids; a re-run adds ~0 |
+| 2 | GitHub releases, Hacker News, RSS | each source's real count, and a re-run that adds ~0 |
 | 3 | Code filters | how many each filter dropped |
-| 4 | The decision pass | their own keep/drop examples scored, misses listed |
-| 5 | The reading pass + digest | a digest from today's real data |
-| 6 | Delivery + schedule | it ran once on its own |
-| 7 | A week in shadow | the user's marked-up misses, and the question revised |
+| 4 | The cheap-model keep/drop pass | their own keep/drop examples scored, misses listed |
+| 5 | The digest | at most 10 items from today's real data |
+| 6 | Delivery + daily schedule | one run by hand; the schedule exists only after they agree |
 
-**One source first, end to end, before adding the rest.** A pipeline built source-wide but
-never run end to end fails at the join between stages, and finding that after twelve
-sources is twelve times the work.
+**X first, end to end, before the other three.** A pipeline built source-wide but never run
+end to end fails at the join between stages. If the profile says X is off, Stage 1 proves
+the store and an empty X fetch, then the other three are built in the same order.
 
-**Anything that bills per row is capped on every run** and only runs on the daily schedule,
-never on a frequent scan.
-
----
-
-## Stage 0. Interview
-
-Read `references/interview.md` and work through it. Three rounds:
-
-1. **Three questions, one at a time,** that decide the project: what they need to keep up
-   with and what they would do differently if they knew on the day; something they missed
-   or found out late, and where it first appeared; where the digest gets read and what they
-   do with an item.
-2. **Questions only they can answer, about things that already happened**: the tools they
-   use daily, where people using those tools talk, three items from last week they would
-   have wanted and three they never want again, what is too old or too small to matter, and
-   whether their sources come through one data platform or get picked per source.
-3. **One message of defaults** to confirm: schedule, stack, storage, caps, models,
-   digest length, delivery.
-
-**Every question goes through the question tool** (`AskUserQuestion` in Claude Code, or
-the equivalent), with two to four options drafted from what they have already said, one
-marked `(Recommended)` and first. It always carries free text, so nothing is lost. Never
-ask the user to design an artifact; they tell you what happened, you turn it into sources,
-filters and questions.
-
-Write `PROFILE.md` from `templates/PROFILE.md`: the focus, the sources, the filters, the
-decision question(s) with their keep/drop examples, the digest format and delivery. Read it
-back as a proposal and get a yes before Stage 1.
-
-**When to refuse or shrink:**
-
-- **No focus** ("everything in AI"): ask for the action instead. "What would you do
-  differently if you knew?" If nothing changes what they do, they need fewer sources, not
-  an engine.
-- **Two or three sources:** an RSS reader or email alerts beat a build. Say so.
-- **A source whose terms forbid automated access** and that has no API or permitted
-  provider: leave it out and say why.
+**Anything that bills per row is capped on every run** and only runs on the daily schedule.
+That is X, when it bills, and every keep/drop call.
 
 ---
 
-## Stages 1-3. Sources, store, code filters
+## Stage 0. Profile
 
-Read `references/sources.md`. It is a playbook per source type: what to use for each,
-what it returns, and the failure each one is known for.
+Read `references/interview.md` and write `PROFILE.md` from `templates/PROFILE.md`. The diet
+is already decided. Ask only for the accounts, repos, feeds, examples, and delivery
+destination this person has to supply. Read the profile back as a proposal and get a yes
+before Stage 1.
 
-**Where the data comes from is the user's call (R2.6).** If they chose one data platform,
-that is the plan: every source it covers goes through it, with one client, one credential
-and a spending cap on every run. Do not argue them back to per-source APIs. If they named
-the exact tool for a source, use that tool and never test an alternative against it. If they
-asked you to pick, choose per source from `references/sources.md` and say which method each got.
+## Stages 1-3. Sources, seen-item memory, code filters
 
-**If the platform has an MCP server, connect it for the build.** Search for and test-run
-the right tool for each source through MCP, then have the engine call those same tools on
-its schedule through the platform's API. MCP while you build, the API while it runs.
+Read `references/sources.md`. Build X first. Every source maps to `templates/item_schema.md`.
+Dedupe and seen-item memory run before anything calls a model. Store in SQLite unless they
+already run something else. Code filters drop by fact and report how many each one dropped.
 
-Changelogs and release notes, however they are fetched: split the page into dated entries
-and give each a stable id.
+## Stage 4. Cheap-model keep/drop
 
-Every source maps to one item shape (`templates/item_schema.md`): id, source, title, url,
-body, published_at, engagement. Dedupe on the id before anything costs money. Store in
-SQLite unless they already run something else.
+Read `references/decisions.md`. Every new item that survived the code filters gets the
+questions from `PROFILE.md` in one cheap-model call. Code routes each answer to keep or
+drop. A failed call is not a drop.
 
-Code filters run on stored items and drop by fact: age, engagement floor, language, length,
-already seen. Report how many each one dropped. Pull smarter before filtering harder: a
-filter does not refund a row the provider already billed.
+Prove it on their examples before trusting it. Tune the words of the question first.
 
----
+## Stages 5-6. Digest, delivery, schedule
 
-## Stage 4. The decision pass
+Read `references/digest.md`. The digest model reads only what keep/drop kept, writes at most
+ten items in the format from `PROFILE.md`, and keeps every link. Start from
+`templates/digest_prompt.md`.
 
-Read `references/decisions.md`. Every item that survived the code filters gets the
-question(s) from `PROFILE.md` in one call, all items in parallel. Use a decision model with
-typed, probability-scored answers if one is available to the user (TypeSafe's Jev via
-OpenRouter is the reference here), otherwise a small, fast LLM with structured output.
-
-Code routes each item:
-
-- **sure drop** (clearly off-topic, clearly nothing new): stored as filtered, never read
-- **sure keep**: goes to the reading pass
-- **unsure**: goes to the reading pass, where the LLM decides
-
-**Never drop on taste.** "Is this a toy project", "would I like this" and "is it good" are
-for ranking and for the LLM, never for a hard drop. They cut real finds.
-
-**Prove it on their examples before trusting it.** Score the keep/drop examples from the
-interview, plus a sample of today's real items you label with them. Print what was kept,
-what was dropped, and every miss. Tune the words of the question, not the thresholds,
-first.
+Deliver `digests/YYYY-MM-DD.md` first, then the destination they named. Ask before
+registering the daily schedule. The scheduled command is the engine program, not an agent
+process.
 
 ---
 
-## Stage 5. The reading pass and the digest
+## Safety
 
-Read `references/digest.md`. The LLM reads only what the decision pass let through, groups
-related items, and writes the digest in the format from `PROFILE.md` with every link kept.
-Start from `templates/digest_prompt.md`.
+Before any model call or any agent process, during the build and inside the engine, read
+`references/safety.md` and follow it.
 
-Cap the digest (default ten items). A digest nobody finishes is a feed.
-
-## Stage 6. Delivery and schedule
-
-Deliver where they already read (a markdown file in their notes, email, chat). Schedule the
-full run once a day. If they want a weekly roll-up, it reads the week's stored items, not
-seven digests.
-
-Ask before registering the schedule (cron, Task Scheduler, launchd). Once it is registered,
-every paid source bills every day without anyone watching. Show the one command, and run the
-engine once by hand if they would rather register it themselves.
-
-## Stage 7. A week in shadow
-
-For a week the user reads the digest and marks two things: what was missing and what was
-noise. Fix misses by adding a source or rewording a question; fix noise with a code filter
-or a sharper question. Then it runs on its own.
+Permission checks and provider safety checks stay on. Default commands and default request
+bodies do not include `--dangerously-skip-permissions`, `yolo`, or any equivalent. The only
+opt-in for extra agent arguments is `agent_args_override`. It is empty unless the user set
+it. Do not set it for them. Do not add a switch that turns model safety off.
 
 ---
 
@@ -201,22 +154,23 @@ or a sharper question. Then it runs on its own.
   check a key, load the file with python-dotenv inside a program and print only the key's
   name and whether it is set. If one is missing, ask the user to add it themselves rather
   than pasting it into the chat.
-- Test every run against a throwaway database, never the one that will go live.
+- The live SQLite file is the seen-item memory. Test every run against a throwaway database,
+  never the one that will go live, and never delete the live file to force a clean run.
 - On Windows, force UTF-8 output from the start (`PYTHONIOENCODING=utf-8` or reconfigure
-  stdout). Titles from communities carry emoji and non-English text that crash the console.
-- Measure the decision pass by running the same rows with and without it: rows the LLM
-  read, tokens, wall time, and which rows it would have kept that the pass dropped.
-- LLMs vary between runs too. A row that passed once and not the next time is not proof
-  the decision pass is wrong.
-- Per-row data costs can exceed the whole LLM bill. The decision pass saves on reading,
-  not on fetching.
+  stdout). Titles from X and Hacker News carry emoji and non-English text that crash the
+  console.
+- A cheap model varies between runs. A row that was kept once and dropped the next time is
+  not, by itself, proof the question is wrong.
+- Per-row fetch cost can exceed the whole model bill. Keep/drop saves on reading, not on
+  fetching. Cap X before spending time on stricter filters.
 
 ## Resources
 
-- `references/interview.md` - every question, what it becomes, and the vague answers to push on
-- `references/sources.md` - per source type: method, item mapping, known failures
-- `references/decisions.md` - writing the question, routing, evaluating on their examples
-- `references/digest.md` - the reading prompt, format, delivery, scheduling, the weekly roll-up
+- `references/interview.md` - the short profile interview and the defaults to confirm
+- `references/sources.md` - X, GitHub releases, Hacker News, RSS, seen-item memory, code filters
+- `references/decisions.md` - the cheap-model keep/drop pass and how to prove it
+- `references/digest.md` - the 10-item digest, delivery, and the daily schedule
+- `references/safety.md` - permission and safety checks, and `agent_args_override`
 - `templates/PROFILE.md` - the file the interview produces and every stage reads
 - `templates/item_schema.md` - the one item shape every source maps to
-- `templates/digest_prompt.md` - the starting reading prompt
+- `templates/digest_prompt.md` - the starting digest prompt
