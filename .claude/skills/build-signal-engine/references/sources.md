@@ -1,124 +1,138 @@
-# Sources
+# Sources, seen-item memory, code filters
 
-Every source maps to the item shape in `templates/item_schema.md`. Build one source end to
-end into the store before adding the next, and prove each with a real run: how many items
-came back, and a second run that adds roughly zero.
+Four sources, in this order, each mapped to `templates/item_schema.md`. Build X end to end
+into the store before adding the next. Prove each with a real run: how many items came
+back, and a second run that adds roughly zero.
 
-## Choosing how each source is pulled
+Caps, the age limit, the Hacker News points floor, and the draft and prerelease switches
+are the numbers in `PROFILE.md`. Do not invent a second set.
 
-**If the user chose one data platform (R2.6), use it for every source it covers.** One
-client, one credential, one bill, one item shape to map from. Keep the per-source notes
-below for what to ask it for.
+Use each source's official interface. Do not scrape the site, do not use an unofficial
+client, and do not read private or protected content.
 
-**What the user named is final.** A platform or a specific tool they named in the interview
-is used as named. Do not run a second tool against it, do not compare prices, and do not
-switch to something you found that looks better. If a named tool actually fails on a real
-run, stop and tell them; do not quietly substitute.
+## X (first)
 
-**For a source they left open,** pick one tool on their platform: search for it (through the
-platform's MCP server during the build, if it has one), take the most used one that returns
-the fields the item shape needs, and prove it with one real run. Only try a second if the
-first fails that run or is far too slow, and say so.
+The primary source. Fetch it before the other three so a story that also shows up as a
+release or a feed item is remembered as the X post.
 
-**If they asked you to pick,** choose per source from the notes below: a feed or API where
-a good one exists, the page read as Markdown for changelogs, and a hosted scraper or actor
-where neither works. Say which method each source got and why.
+- **Method:** the official X API, with the user's own credential in the gitignored env
+  file. For each handle in `PROFILE.md`, that account's recent original posts. If they set
+  a search query, one recent-search call for that query.
+- **Leave out, unless the profile says otherwise:** replies, reposts, quote-only
+  duplicates of a post already stored. Never DMs, bookmarks, likes, or protected posts.
+- **Ids:** `x:` plus the post id.
+- **URL:** `https://x.com/<handle>/status/<id>`. Also collect outbound URLs from the post
+  for seen-item memory (below).
+- **Fields:** text as the body (capped), `created_at` as `published_at`, public like count
+  plus repost count as `engagement`. Title is the first line of the text, or the handle
+  plus that line when the text has no title.
+- **Caps:** the per-account cap and the search cap from the profile, whichever is smaller
+  on a given call. Stop the run on a credit or rate-limit error. Do not retry in a loop.
+- **Known failures:** recent search only covers a short window, so an old post will not
+  come back through search; account timelines are how a named handle is read. A busy
+  account's replies will dominate the cap if the exclude filter is wrong. Check one real
+  payload and confirm replies and reposts are absent before Stage 2.
+- **If the profile says X is off:** do not invent accounts. Stage 1's proof is that the
+  store exists and X fetched nothing. Then build the other three in the same order.
 
-## By source type
+## GitHub releases
 
-### Changelogs and release notes (the most underrated source)
+- **Method:** `GET /repos/{owner}/{repo}/releases` on the GitHub REST API. Not the releases
+  HTML page. A token in the env file raises the rate limit; without one, stay inside the
+  unauthenticated limit and say so.
+- **Ids:** `gh:` plus `owner/repo` plus `:` plus the numeric release id.
+- **Fields:** title is repo, tag, and release name. Body is the release notes, capped.
+  `published_at` is the API's `published_at`. URL is `html_url`.
+- **Skip drafts.** Skip prereleases when the profile says so (the default). Do not store
+  those skips: publishing a draft, or clearing the prerelease flag, reuses the same release
+  id, and a stored skip would hide the real release. The next fetch sees the latest page
+  of releases and can admit it.
+- **Cap:** the per-repo cap from the profile. A repo that returns an empty list is a valid
+  run, not a failure.
+- **Known failure:** pulling full release history on the first run floods the store. The
+  cap plus the age filter is what prevents that.
 
-The first place a change in a tool shows up, and usually the one with the most direct
-consequence (a deprecation, a new mode, a price change). Most have no feed.
+## Hacker News
 
-- **Method:** a page-to-Markdown fetcher (Apify Web Fetch, Firecrawl, Jina Reader, or a
-  plain HTTP fetch plus a readability library for static pages). Then split the page into
-  entries yourself.
-- **Splitting:** an entry starts at a heading that carries a date or a version
-  ("September 30, 2026", "Sep 29", "2026-09-30", "v2.1.287"). Some sites put the date on
-  the line under a post title instead; only fall back to that when the page has no dated
-  headings at all, or the page header becomes an entry.
-- **Ids:** hash of page URL + heading + the first ~200 characters of the entry body. The
-  body is needed because several entries can share a heading (three "Sep 29" entries).
-- **Age cap:** parse the date from the heading (a month and day with no year takes the
-  current year, or last year if that would be in the future) and skip entries older than
-  the cap (default 7 days). Without it, a page's first read floods the digest with last
-  month's launches as if they were news.
-- **Titles:** label + heading + the entry's first real sentence. Skip tag lines
-  ("Feature · Model: x · API: y"), boilerplate ("Choose a tag to compare", "Subscribe") and
-  fragments under five words. A tag line as the title is how a minor update gets reported
-  as a launch.
-- **Pick the right URL.** Many docs sites render navigation only, with the content loaded
-  by JavaScript. Look for a Markdown or "llms" version of the page (some docs serve `.md`),
-  the product's public changelog page rather than the docs one, or a raw `CHANGELOG.md`
-  in the repo. Test each URL and check it splits before adding it.
-- **GitHub releases:** use the GitHub releases API, not the releases page. It is free, and
-  the page read as Markdown can come back as "There was an error while loading". Through a
-  page fetcher, keep `per_page` small (20): a busy repo's releases JSON passes Apify Web
-  Fetch's 10 MB limit, or use the project's own changelog page instead.
-- **Consumer products** (chat apps, assistants) usually publish release notes on their help
-  center. Those are often the most relevant source for someone who is not a developer.
+- **Method:** the official Firebase API or the official Algolia API. Stories only, not
+  comments. Apply the points floor in the query when the API supports it, so under-floor
+  stories are never downloaded into the store.
+- **Ids:** `hn:` plus the story id.
+- **URL:** the outbound article URL when the story has one, with the discussion URL in
+  `metadata`. Text posts use the discussion URL.
+- **Engagement:** points.
+- **Do not store stories under the points floor.** Points rise after publication. A story
+  that is at 10 this morning can clear the floor tomorrow and should still be eligible
+  while it is inside the age cap. Storing the skip would mark it seen.
+- **Known failure:** treating the front page as the query. The front page is not an AI/dev
+  filter. Relevance is the keep/drop pass, not a keyword list. Keywords bury a new tool
+  name the list does not contain.
 
-### Communities (Reddit, forums, Hacker News)
+## RSS
 
-Where people using the tools report what they found, often before anyone writes about it.
+- **Method:** each feed URL in the profile, fetched over HTTP. Send stored `ETag` and
+  `Last-Modified` when the previous run saved them.
+- **Ids:** `rss:` plus a hash of the item's guid, or of its link when there is no guid.
+- **Fields:** title, link, the entry summary or content capped as the body, the entry's
+  published date.
+- **Cap:** the per-feed cap from the profile. A dead feed is reported and skipped. It does
+  not fail the run.
+- **Known failure:** a feed that republishes the same article under a new guid every day.
+  The URL key below is what catches that.
 
-- **Hacker News:** the free Firebase or Algolia API. Filter by points in code.
-- **Reddit:** the official API needs approval under Reddit's developer terms, and
-  unauthenticated JSON is unreliable. The practical route is a hosted scraper (an Apify
-  Actor, for example). Use listing URLs that encode the window
-  (`/r/<sub>/top/?t=day` or `?t=week`), cap posts per subreddit, skip comments. Check
-  whether the scraper's post limit is per subreddit or per run: `harshmaur/reddit-scraper`'s
-  is per subreddit, and five subreddits in one run with a high limit ran straight into its
-  $0.50 spending cap. One run per subreddit with its own small cap keeps the bill predictable.
-  Scrapers differ a lot in speed: in testing, `harshmaur/reddit-scraper` returned 299 posts
-  in 30 seconds and another took 7 minutes for 27. If a run is that slow, that is when to
-  try another one, unless the user named it.
-- **Forums and Discourse:** most have RSS (`/latest.rss`) or a JSON API.
-- **Discord, Slack, private groups:** only with a public archive or the owner's
-  permission. Otherwise leave them out and say why.
+## Seen-item memory
 
-### Video
+One SQLite table of items, primary key `id`. One row per source with `last_fetched` and the
+HTTP validators for RSS. The live database is the memory. Tests use a throwaway file.
 
-- **A channel's uploads:** YouTube's per-channel RSS feed is free.
-- **Search ("what are people making videos about this week"):** a provider or the YouTube
-  Data API (search is quota-heavy). Filter by views in code. Transcripts are a separate,
-  paid step; only fetch them for items that survive the decision pass.
+Also store `url_key` values for the item URL and, for X, each outbound URL: lowercase, no
+trailing slash, tracking parameters (`utm_*` and the same kind of click id) removed. X is
+fetched first, so the X post is the row that later copies match.
 
-### Papers, repos, news
+| Outcome | Stored? | Later runs |
+|---|---|---|
+| Inserted, decision still null | yes | not fetched again; the next run decides it |
+| Keep or drop decision | yes, decision saved | left alone |
+| Included in a digest | yes, `in_digest` set | left alone |
+| Same `url_key` as a row already stored | yes, `filtered_by=duplicate` | left alone |
+| Older than the max age | yes, `filtered_by=age` | left alone |
+| Under the engagement floor | no | eligible again if it clears the floor inside the age cap |
+| GitHub draft, or a skipped prerelease | no | eligible if that release is later published as a full release |
+| Empty title or empty URL | yes, `filtered_by=empty` | left alone |
 
-- **arXiv:** the free API, by category, last N days.
-- **GitHub trending:** the trending page or a provider. Check the input limits (some cap
-  results per run).
-- **News search:** a search API with a per-query cap. High duplication; dedupe by URL and
-  by title.
+X is fetched first, so an X post normally wins the `url_key`. If that fetch fails, a later
+source may store the story first. That is still one story. Do not delete the row to make
+X win tomorrow.
 
-## Store and dedupe
+Check ids and URL keys before any paid call and before any model call. A second run of a
+finished morning adds nothing and calls no model.
 
-- One table of items keyed on the stable id, one of sources with a last-fetched time.
-- Check ids before any paid call. A run done twice should cost once.
-- Keep filtered items with the reason they were dropped. The shadow week needs them.
+The daily run does not re-decide history. Changing the question does not resurrect old
+rows. A manual redecide may clear `decision` only on rows that were kept or dropped, have
+`in_digest` null, and `filtered_by` null. It does not delete ids.
 
-## Cost rules for paid sources
+## Code filters
 
-- **Cap every run** (max items and max spend, if the provider supports it).
-- **Respect the platform's concurrent-run limit.** Apify's plans cap runs in flight (5 on a
-  starter plan) and answer the extra ones with HTTP 402, which looks like an empty balance.
-  Run at most 4 at a time and retry a 402 after a short wait.
-- **Paid sources run on the daily schedule only,** never on a frequent scan. A source that
-  quietly runs on an hourly job costs 24 times what was planned.
-- **You pay for rows you drop.** An engagement floor in code does not refund the provider.
-  Pull smarter instead: top-of-day or top-of-week listings, fewer posts per community, a
-  longer window run less often.
-- **Trim the download.** Some providers return far more than needed (whole comment trees
-  on every post); ask only for the fields the item shape uses.
+Filters run on rows just inserted, before the model, and they drop by fact. Report how many
+each one dropped.
+
+- **Already seen,** including a matching `url_key`.
+- **Max age,** from `published_at`. A missing date is not an age drop; the keep/drop pass
+  judges that item.
+- **Engagement floor,** only where the profile sets one. The default floor is the Hacker
+  News points floor, applied at fetch as described above. X, GitHub, and RSS have no floor
+  unless the profile adds a number.
+- **GitHub drafts, and prereleases when the profile skips them.** Applied at fetch, not
+  stored.
+- **Empty title or empty URL.**
+
+Language, vibe, and "too basic" are not filters. They belong in the keep/drop questions.
+
+Pull less before filtering harder. A filter does not refund an X row that was already billed.
+Prefer the account list over an open search, and keep the caps small.
 
 ## Proof for Stages 1-2
 
-A platform's run record can post charges several seconds after the run returns (Apify does,
-and the per-result charge lands after the start charge). Settle costs once at the end of the
-run by polling each run record until its total stops changing; a single read under-counts.
-
-For each source, report in one line: how it is pulled, items returned, items stored, and the count on
-an immediate second run (should be 0 or close to it). For a paid source, add the real cost
-of that run from the provider's own run record.
+For each source, one line: how it is pulled, items returned, items stored, and the count on
+an immediate second run (0 or close to it). For X, add whether the run stopped inside its
+cap. Stage 1 is done only when X has stable ids and the re-run adds nothing.

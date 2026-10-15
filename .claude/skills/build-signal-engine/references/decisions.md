@@ -1,115 +1,91 @@
-# The decision pass
+# The cheap-model keep/drop pass
 
-The decision pass is what lets the engine read thousands of items: a quick, typed call on
-every item, so the LLM only reads what survives. It is also where the user's filter lives,
-in the words of one or two questions.
+Every new item that survived the code filters gets one cheap-model call. The call answers
+the questions in `PROFILE.md`. Code turns the answers into keep or drop. The digest model
+never sees a drop, and it never sees an item the store already remembers as decided.
 
-## Write the question from their examples
+Use the cheapest model the user can call that returns structured JSON reliably. Do not put
+a larger model on this pass. Do not add a second decision service.
 
-Start from R1.1 (what they would act on) and the keep/drop examples from R2.3. The question
-must separate those examples. Read it against each one before running anything.
+Invoke it the way `references/safety.md` requires: provider safety checks on, no skip flag,
+no safety-disable field.
 
-**One thing per question.** "Is this a new and relevant release?" is two questions in one,
-and the answer is a blur. Split it.
+## Write the questions from their examples
 
-A good starting set for keeping up with a field:
+Start from the focus line and the keep/drop examples in `PROFILE.md`. The questions must
+separate those examples. Read them against each example before running anything.
 
-- **Relevance**, as a score on levels you write in their words. Level 1 is "not about my
-  area", the top level is "directly changes how I work". Say that an unfamiliar product or
-  model name is not a reason to score lower, or every brand-new launch gets buried.
-- **Reports something new and concrete:** yes or no. A release, a feature, a tool, a
-  measured result, a technique, a documented incident. Opinions, questions, complaints,
-  jokes, reactions and rumors are "no", even when they mention a real product.
+**One thing per question.** "Is this a new and relevant release?" is two questions, and the
+answer is a blur. The profile has two:
 
-Taste questions ("is this a toy project", "would I enjoy this", "is it high quality") are
-useful for ranking and for the reading pass. They are never a reason to drop.
+- **Relevant to this person's AI/dev work:** yes or no. An unfamiliar product or model name
+  is not a reason to answer no, or every new launch gets buried.
+- **Reports something new and concrete:** yes or no. A release, a feature, a break, a
+  measured result, a technique, a documented incident. Opinions, questions, jokes, memes,
+  reactions, and rumors are no, even when they name a real product.
 
-**Keep numbers out of the question.** Upvotes, dates, counts and comparisons are code.
-Decision models and LLMs are both unreliable at arithmetic and dates.
+Taste ("toy", "would I enjoy this", "is it good") is not a question on this pass. It can
+influence which five the digest keeps. It is never a reason to drop here.
 
-**Send only the fields the decision needs:** title, the first few hundred characters of the
-body, and the source domain. Unrelated text lowers accuracy.
+**Keep numbers out of the questions.** Points, dates, and counts are code. The model is
+unreliable at arithmetic.
+
+**Send only the fields the decision needs:** title, source, the first few hundred characters
+of the body, and the URL's domain.
+
+## What the model returns
+
+One item per request. Ask both questions in that request. Require structured output:
+
+```json
+{"relevant": true, "new": true}
+```
+
+Booleans, not probabilities. A cheap chat model is not a calibrated scorer, and a fake
+probability becomes a threshold nobody can defend.
 
 ## Route in code
 
 ```
-drop    relevance below the floor, OR clearly reports nothing new
-keep    relevance high AND clearly new AND not a toy
-unsure  everything else
+drop    relevant is no, OR new is no
+keep    relevant is yes, AND new is yes
 ```
 
-Starting thresholds when using probabilities: drop on relevance under 0.4 or "new" at or
-under 0.1; keep on relevance 0.5+ and "new" 0.6+. Only `drop` changes what happens; `keep`
-and `unsure` both go to the reading pass, where the LLM makes the final call and can rank
-keeps first.
+There is no taste route and no score cutoff.
 
-**Why these and not tighter:** in testing on a real day of 155 items, adding a toy-project
-drop at 0.8 cut 7 personal builds the LLM kept (a book-to-course skill, a model trained from
-scratch), and a "new" cut at 0.15 dropped a conference talk. Tighter bands save more and
-lose real finds. Let the user choose that trade with R2.5.
+If the call fails, times out, or returns JSON that does not parse, the item gets no
+decision and is not dropped. It stays eligible for the digest only when there are fewer
+keeps than the digest cap. The keep/drop pass must never be a single point of failure, and
+it must never drop on an error.
 
-## Run it in parallel
+Store the decision on the row. The next run does not call the model for that id again.
 
-Ask all questions about one item in one request, and run all items concurrently with a
-small cap (8 to 16). A sequential LLM loop over a few hundred items takes many minutes; a
-parallel decision pass over 864 items took 17 seconds in testing.
+## Run it in parallel, inside a cap
 
-If a call fails or times out, the item gets no verdict and goes on to the reading pass as
-if the decision pass did not exist. The decision pass must never be a single point of
-failure.
+Run items concurrently with a small cap (8). Sequential calls over a few hundred items take
+many minutes. One item per request: several items in one prompt make them interact.
+
+Retry a 429 or a 5xx a small fixed number of times with backoff. Then treat the item as no
+decision, as above. Honor the profile's per-run cap on keep/drop calls. This pass runs on
+the daily schedule, not on a frequent scan.
 
 ## Prove it on their examples
 
-Before trusting it:
+Before the first digest:
 
-1. Score every keep/drop example from `PROFILE.md`. Print each with its answers and route.
-2. Take a real sample from today's run (50-150 items), have the user sort it in one
-   multi-select call (or sort it with them), and score that too.
-3. Report: how many dropped, how many kept, and every item they wanted that was dropped.
+1. Score every keep and drop example in `PROFILE.md`. Print each with both answers and the route.
+2. Take a real sample from today's new rows (up to 50), label it with the user, and score that too.
+3. Report how many dropped, how many kept, and every item they wanted that was dropped.
 
-Fix misses by rewording the question first. Thresholds second. A miss that is really a
-policy disagreement ("it dropped consumer app features because my relevance question is
-about developers") is a decision for the user, not a bug: offer to widen the question.
+Fix misses by rewording the question first. A miss that is really a policy disagreement
+("it dropped a consumer app launch because the question is about tools I use") is their
+decision: offer to widen the question. Do not "fix" it by weakening the route in code.
 
-## Measure it honestly
+## Measure it on a throwaway database
 
-Run the same stored items through the rest of the pipeline twice, once with the decision
-pass off and once on, against a throwaway database. Report items the LLM read, tokens, wall
-time, and the items the LLM kept with the pass off that the pass dropped. Expect the LLM to
-vary between the two runs on its own; do not count those rows against the decision pass.
+Run the same stored ids through the digest twice, once with every survivor marked keep and
+once with the pass on. Report how many rows the digest model read, and which rows it would
+have included that the pass dropped. Expect the digest model to vary between the two runs
+on its own; do not count those rows against the pass.
 
-For the per-decision receipt, run the decision pass and a small LLM over the same items
-with the same questions and compare time and cost. Say which is which: the decision pass
-saves on reading, never on the cost of fetching the data.
-
-## Where to use which model
-
-| Job | Model |
-|---|---|
-| The decision on every item | a decision model with typed answers (TypeSafe's Jev via OpenRouter is the reference), or the smallest LLM that returns structured output reliably |
-| Reading and writing the digest | a mid-tier LLM, once per run |
-| Content ideas, weekly roll-up (optional) | the same or a stronger model, once per run or week |
-
-## Calling Jev (TypeSafe's decision model on OpenRouter)
-
-One POST per item, with the user's OpenRouter key as a Bearer token:
-
-```
-POST https://openrouter.ai/api/alpha/decisions
-{"model": "typesafe/jev-1.13",
- "state": "<title + first ~1,500 chars of the body + url>",
- "questions": {
-   "relevance": {"type": "score", "instructions": "<the relevance question>",
-                 "criteria": ["<level 0>", "<level 1>", "...up to 10 levels"]},
-   "new":       {"type": "noul", "instructions": "<the 'something new' question>",
-                 "criteria": {"true": "<what yes means>", "false": "<what no means>"}}}}
-```
-
-The response has `answers`: a `noul` comes back as `{"noul": <probability of yes>}`, a
-`score` as `{"score": <weighted level, 0 to levels-1>, "probabilities": {...}}`; divide the
-score by `levels - 1` for a 0-1 number. A `choice` question takes a dict of option names to
-descriptions and returns `{"choice": ..., "probabilities": {...}}`. Each call is a few
-hundred milliseconds and a fraction of a cent, so send every item in parallel (8-16 at a
-time), with a 2-second timeout and a retry on 429 and 5xx. One item per request: putting
-several items in one state makes them interact. If a call fails, the item gets no verdict
-and goes to the reading pass, never dropped.
+The pass saves on reading. It does not save on the cost of fetching X.
